@@ -74,24 +74,26 @@ private:
 	void							positionRenderWindow();
 	bool							mFadeInDelay;
 	SpoutOut 						mSpoutOut;
-	gl::GlslProgRef mRenderProg;
-	gl::GlslProgRef mUpdateProg;
+	gl::GlslProgRef					mRenderProg;
+	gl::GlslProgRef					mUpdateProg;
 
 	// Descriptions of particle data layout.
-	gl::VaoRef		mAttributes[2];
+	gl::VaoRef						mAttributes[2];
 	// Buffers holding raw particle data on GPU.
-	gl::VboRef		mParticleBuffer[2];
+	gl::VboRef						mParticleBuffer[2];
 
 	// Current source and destination buffers for transform feedback.
 	// Source and destination are swapped each frame after update.
-	std::uint32_t	mSourceIndex = 0;
-	std::uint32_t	mDestinationIndex = 1;
+	std::uint32_t					mSourceIndex = 0;
+	std::uint32_t					mDestinationIndex = 1;
 
 	// Mouse state suitable for passing as uniforms to update program
-	bool			mMouseDown = false;
-	float			mMouseForce = 0.0f;
-	vec3			mMousePos = vec3(0, 0, 0);
+	bool							mMouseDown = false;
+	float							mMouseForce = 0.0f;
+	vec3							mMousePos = vec3(0, 0, 0);
 	vec2							mCurrentSquarePos;
+	ivec2							mCurrentCirclePos;
+
 };
 
 
@@ -171,8 +173,8 @@ ParticleSphereGPUApp::ParticleSphereGPUApp()
 
 	// windows
 	mIsShutDown = false;
-	mRenderWindowTimer = 0.0f;
-	timeline().apply(&mRenderWindowTimer, 1.0f, 2.0f).finishFn([&] { positionRenderWindow(); });
+	//mRenderWindowTimer = 0.0f;
+	//timeline().apply(&mRenderWindowTimer, 1.0f, 2.0f).finishFn([&] { positionRenderWindow(); });
 
 }
 void ParticleSphereGPUApp::positionRenderWindow() {
@@ -201,8 +203,13 @@ void ParticleSphereGPUApp::update()
 	mSDASession->update();
 	mMouseDown = true;
 	mMouseForce = 500.0f;
-	mMousePos = vec3(mSDASession->getFloatUniformValueByIndex(35), mSDASession->getFloatUniformValueByIndex(36), 0.0f);
-	mCurrentSquarePos = vec2(mSDASession->getFloatUniformValueByIndex(35), mSDASession->getFloatUniformValueByIndex(36));
+	float iRHandX = mSDASession->getFloatUniformValueByIndex(mSDASettings->IRHANDX) * getWindowWidth() + getWindowWidth() / 2;
+	float iRHandY = mSDASession->getFloatUniformValueByIndex(mSDASettings->IRHANDY) * -1.0f * getWindowHeight() + getWindowHeight() / 2;
+	float iLHandX = mSDASession->getFloatUniformValueByIndex(mSDASettings->ILHANDX) * getWindowWidth() + getWindowWidth() / 2;
+	float iLHandY = mSDASession->getFloatUniformValueByIndex(mSDASettings->ILHANDY) * -1.0f * getWindowHeight() + getWindowHeight() / 2;
+	mMousePos = vec3(iRHandX, iRHandY, 0.0f);
+	mCurrentSquarePos = vec2(iRHandX, iRHandY);
+	mCurrentCirclePos = vec2(iLHandX, iLHandY);
 	// Update particles on the GPU
 	gl::ScopedGlslProg prog(mUpdateProg);
 	gl::ScopedState rasterizer(GL_RASTERIZER_DISCARD, true);	// turn off fragment stage
@@ -248,20 +255,20 @@ void ParticleSphereGPUApp::mouseMove(MouseEvent event)
 }
 void ParticleSphereGPUApp::mouseDown(MouseEvent event)
 {
-	mMouseDown = true;
+	/*mMouseDown = true;
 	mMouseForce = 500.0f;
-	mMousePos = vec3(event.getX(), event.getY(), 0.0f);
+	mMousePos = vec3(event.getX(), event.getY(), 0.0f);*/
 
 }
 void ParticleSphereGPUApp::mouseDrag(MouseEvent event)
 {
-	mMousePos = vec3(event.getX(), event.getY(), 0.0f);
+	//mMousePos = vec3(event.getX(), event.getY(), 0.0f);
 
 }
 void ParticleSphereGPUApp::mouseUp(MouseEvent event)
 {
-	mMouseForce = 0.0f;
-	mMouseDown = false;
+	/*mMouseForce = 0.0f;
+	mMouseDown = false;*/
 }
 
 void ParticleSphereGPUApp::keyDown(KeyEvent event)
@@ -312,6 +319,9 @@ void ParticleSphereGPUApp::draw()
 
 	// Spout Send
 	mSpoutOut.sendViewport();
+	// left hand
+	gl::drawStrokedCircle(mCurrentCirclePos, 100);
+	// right hand
 	gl::drawSolidRect(Rectf(mCurrentSquarePos - vec2(50), mCurrentSquarePos + vec2(50)));
 
 	getWindow()->setTitle(mSDASettings->sFps + " fps SDAParticleSphere");
