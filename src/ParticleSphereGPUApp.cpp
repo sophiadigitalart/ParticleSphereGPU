@@ -91,9 +91,12 @@ private:
 	bool							mMouseDown = false;
 	float							mMouseForce = 0.0f;
 	vec3							mMousePos = vec3(0, 0, 0);
-	vec2							mCurrentSquarePos;
-	ivec2							mCurrentCirclePos;
-
+	vec2							mRightHandPos;
+	ivec2							mLeftHandPos;
+	// spheres
+	gl::BatchRef					mSphereRight, mSphereLeft;
+	CameraPersp						mCamera;
+	int								mCameraZoom;
 };
 
 
@@ -170,7 +173,15 @@ ParticleSphereGPUApp::ParticleSphereGPUApp()
 		.attribLocation("iHome", 3)
 		.attribLocation("iDamping", 4)
 	);
+	auto lambert = gl::ShaderDef().lambert().color();
+	gl::GlslProgRef shader = gl::getStockShader(lambert);
 
+	auto sphereRight = geom::Sphere();
+	mSphereRight = gl::Batch::create(sphereRight, shader);
+	auto sphereLeft = geom::Sphere();
+	mSphereLeft = gl::Batch::create(sphereLeft, shader);
+	mCameraZoom = 50;
+	mCamera.lookAt(vec3(mCameraZoom, 0, 0), vec3(0));
 	// windows
 	mIsShutDown = false;
 	//mRenderWindowTimer = 0.0f;
@@ -208,8 +219,8 @@ void ParticleSphereGPUApp::update()
 	float iLHandX = mSDASession->getFloatUniformValueByIndex(mSDASettings->ILHANDX) * getWindowWidth() + getWindowWidth() / 2;
 	float iLHandY = mSDASession->getFloatUniformValueByIndex(mSDASettings->ILHANDY) * -1.0f * getWindowHeight() + getWindowHeight() / 2;
 	mMousePos = vec3(iRHandX, iRHandY, 0.0f);
-	mCurrentSquarePos = vec2(iRHandX, iRHandY);
-	mCurrentCirclePos = vec2(iLHandX, iLHandY);
+	mRightHandPos = vec2(iRHandX, iRHandY);
+	mLeftHandPos = vec2(iLHandX, iLHandY);
 	// Update particles on the GPU
 	gl::ScopedGlslProg prog(mUpdateProg);
 	gl::ScopedState rasterizer(GL_RASTERIZER_DISCARD, true);	// turn off fragment stage
@@ -273,6 +284,10 @@ void ParticleSphereGPUApp::mouseUp(MouseEvent event)
 
 void ParticleSphereGPUApp::keyDown(KeyEvent event)
 {
+	if (event.getChar() == '-') {
+		++mCameraZoom;
+		mCamera.lookAt(vec3(mCameraZoom, 0, 0), vec3());
+	}
 	if (!mSDASession->handleKeyDown(event)) {
 		switch (event.getCode()) {
 		case KeyEvent::KEY_ESCAPE:
@@ -319,10 +334,24 @@ void ParticleSphereGPUApp::draw()
 
 	// Spout Send
 	mSpoutOut.sendViewport();
+	gl::enableDepthRead();
+	gl::enableDepthWrite();
+
 	// left hand
-	gl::drawStrokedCircle(mCurrentCirclePos, 100);
+	ci::gl::pushMatrices();
+	gl::setMatrices(mCamera);
+	gl::translate(mLeftHandPos);
+	mSphereLeft->draw();
+	ci::gl::popMatrices();
+
+	gl::drawStrokedCircle(mLeftHandPos, 100);
 	// right hand
-	gl::drawSolidRect(Rectf(mCurrentSquarePos - vec2(50), mCurrentSquarePos + vec2(50)));
+	ci::gl::pushMatrices();
+	gl::setMatrices(mCamera);
+	gl::translate(mRightHandPos);
+	mSphereRight->draw();
+	ci::gl::popMatrices();
+	gl::drawSolidRect(Rectf(mRightHandPos - vec2(50), mRightHandPos + vec2(50)));
 
 	getWindow()->setTitle(mSDASettings->sFps + " fps SDAParticleSphere");
 }
